@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Marbetes</title>
+
+<style>
+body {
+  font-family: Arial;
+  padding:20px;
+  max-width:500px;
+  margin:auto;
+  background:#fff3e8;
+}
+.step { display:none; }
+.step.active { display:block; }
+button {
+  padding:10px;
+  margin-top:10px;
+  width:100%;
+  background:#f4a261;
+  border:none;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover{
+  background:#e76f51;
+}
+input, select {
+  width:100%;
+  padding:8px;
+  margin:5px 0;
+  border:1px solid #e6b48a;
+  background:#fffaf7;
+}
+.loader { display:none; text-align:center; margin-top:10px; font-weight:bold; }
+h1, h2, h3, h4, label { color:#7a3e1d; }
+#login, #app {
+  background:#fffaf7;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <h2 style="text-align:center;">Acceso Marbetes</h2>
+
+  <input id="usuario" placeholder="Usuario">
+  <input type="password" id="pass" placeholder="Contraseña">
+
+  <button id="btnLogin" onclick="login()">Entrar</button>
+  <div class="loader" id="loaderLogin">Validando...</div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+
+<h1>Marbetes</h1>
+<h3>Bienvenido</h3>
+
+<!-- STEP 1 -->
+<div class="step active" id="step1">
+
+<h3>Datos del inmueble</h3>
+
+<label>Calle</label>
+<select id="calle">
+<option>Via Arietis</option>
+<option>Via Ceti</option>
+<option>Trianguli</option>
+<option>Hydrae</option>
+</select>
+
+<label>Número</label>
+<input id="numero">
+
+<label>Nombre completo</label>
+<input id="nombre">
+
+<label>Tipo de registro</label>
+<select id="tipoRegistro">
+<option value="inquilino">Inquilino</option>
+<option value="propietario">Propietario</option>
+</select>
+
+<button onclick="validarTipo()">Siguiente</button>
+
+</div>
+
+<!-- STEP 2 (NO TOCADO) -->
+<div class="step" id="step2">
+
+<h3>Registro de inquilinos</h3>
+
+<label>Número de inquilinos</label>
+<input type="number" id="numInquilinos" min="1" max="8" oninput="generarInquilinos()">
+
+<div id="inquilinosContainer"></div>
+
+<button onclick="validarPaso2()">Siguiente</button>
+
+</div>
+
+<!-- STEP 3 -->
+<div class="step" id="step3">
+
+<h3>Autos</h3>
+<div id="autosContainer"></div>
+
+<button id="btnEnviar" onclick="enviar()">Enviar</button>
+<div class="loader" id="loaderEnviar">Enviando...</div>
+
+</div>
+
+</div>
+
+<script>
+
+let data = { inquilinos: [] };
+let usuarioActivo = "";
+
+/* LOGIN */
+function login(){
+
+  const usuarioInput = document.getElementById("usuario").value;
+  const passwordInput = document.getElementById("pass").value;
+
+  const btn = document.getElementById("btnLogin");
+  const loader = document.getElementById("loaderLogin");
+
+  btn.disabled = true;
+  loader.style.display = "block";
+
+  const url = "https://script.google.com/macros/s/AKfycbyRYOwS4yDtqhXHDMwlME4i8WV6vs4ZX0BCYFANY_SR73yqRDUTLE-t_HL1tjnWH5Y/exec"
+    + "?action=login"
+    + "&usuario=" + encodeURIComponent(usuarioInput)
+    + "&password=" + encodeURIComponent(passwordInput);
+
+  fetch(url)
+  .then(res => res.text())
+  .then(res => {
+
+    btn.disabled = false;
+    loader.style.display = "none";
+
+    if(res === "OK"){
+      usuarioActivo = usuarioInput;
+      document.getElementById("login").style.display = "none";
+      document.getElementById("app").style.display = "block";
+    }else{
+      alert("Usuario o contraseña incorrectos");
+    }
+
+  })
+  .catch(()=>{
+    btn.disabled = false;
+    loader.style.display = "none";
+    alert("Error de conexión");
+  });
+
+}
+
+/* PASOS */
+function nextStep(step){
+  document.querySelectorAll(".step").forEach(s=>s.classList.remove("active"));
+  document.getElementById("step"+step).classList.add("active");
+}
+
+/* TIPO */
+function validarTipo(){
+
+  const tipo = document.getElementById("tipoRegistro").value;
+
+  if(tipo === "propietario"){
+    generarPropietario();
+    nextStep(3);
+  }else{
+    nextStep(2);
+  }
+
+}
+
+/* ================= INQUILINOS (NO TOCADO) ================= */
+
+function generarInquilinos(){
+
+  const num = document.getElementById("numInquilinos").value;
+  const cont = document.getElementById("inquilinosContainer");
+
+  cont.innerHTML = "";
+
+  for(let i=0;i<num;i++){
+
+    cont.innerHTML += `
+    <hr>
+    <h4>Inquilino ${i+1}</h4>
+
+    <input placeholder="Número interior" id="int${i}">
+    <input placeholder="Nombre" id="nom${i}">
+    <input type="number" placeholder="¿Cuántos habitantes viven contigo?" id="hab${i}">
+
+    <label style="text-align:center;">
+      ¿Tiene autos?
+      <input type="checkbox" id="check${i}" onchange="toggleAutos(${i})">
+    </label>
+
+    <div id="autosInputs${i}" style="display:none;">
+      <input id="ac${i}" oninput="calc(${i})" placeholder="Autos cochera">
+      <input id="af${i}" oninput="calc(${i})" placeholder="Autos frente">
+      <input id="aa${i}" oninput="calc(${i})" placeholder="Autos adicionales">
+      <input id="total${i}" readonly placeholder="Total autos">
+    </div>
+    `;
+  }
+}
+
+function toggleAutos(i){
+  document.getElementById("autosInputs"+i).style.display =
+    document.getElementById("check"+i).checked ? "block" : "none";
+}
+
+function calc(i){
+
+  let total =
+    (+document.getElementById("ac"+i).value || 0) +
+    (+document.getElementById("af"+i).value || 0) +
+    (+document.getElementById("aa"+i).value || 0);
+
+  document.getElementById("total"+i).value = total;
+}
+
+function validarPaso2(){
+  generarAutos();
+  nextStep(3);
+}
+
+function generarAutos(){
+
+  const cont = document.getElementById("autosContainer");
+  cont.innerHTML = "";
+  data.inquilinos = [];
+
+  const num = document.getElementById("numInquilinos").value;
+
+  for(let i=0;i<num;i++){
+
+    let total = document.getElementById("check"+i).checked
+      ? (+document.getElementById("total"+i).value || 0)
+      : 0;
+
+    let inq = {
+      interior: document.getElementById("int"+i).value,
+      nombre: document.getElementById("nom"+i).value,
+      habitantes: document.getElementById("hab"+i).value,
+      autos:[]
+    };
+
+    for(let j=0;j<total;j++){
+
+      cont.innerHTML += `
+      <hr>
+      <h4>Auto ${j+1} (Inquilino ${i+1})</h4>
+
+      <input id="cond${i}_${j}" placeholder="Conductor">
+
+      <select id="tipo${i}_${j}">
+        <option>Auto</option>
+        <option>Moto</option>
+      </select>
+
+      <input id="marca${i}_${j}" placeholder="Marca">
+      <input id="modelo${i}_${j}" placeholder="Modelo">
+      <input id="anio${i}_${j}" placeholder="Año">
+      <input id="color${i}_${j}" placeholder="Color">
+      <input id="placas${i}_${j}" placeholder="Placas">
+
+      <select id="uso${i}_${j}">
+        <option>Residente</option>
+        <option>Chofer</option>
+        <option>Visita frecuente</option>
+      </select>
+      `;
+
+      inq.autos.push({});
+    }
+
+    data.inquilinos.push(inq);
+  }
+
+}
+
+/* ================= PROPIETARIO (FIXED) ================= */
+
+function generarPropietario(){
+
+  data.inquilinos = [{
+    interior: "Propietario",
+    nombre: document.getElementById("nombre").value,
+    habitantes: "",
+    autos:[]
+  }];
+
+  document.getElementById("autosContainer").innerHTML = `
+    <input id="habProp" type="number" placeholder="¿Cuántos habitantes viven contigo?">
+
+    <label>¿Tiene autos?</label>
+    <input type="checkbox" id="checkProp" onchange="toggleAutosProp()">
+
+    <div id="autosInputsProp" style="display:none;">
+      <input id="acProp" oninput="calcProp()" placeholder="Autos cochera">
+      <input id="afProp" oninput="calcProp()" placeholder="Autos frente">
+      <input id="aaProp" oninput="calcProp()" placeholder="Autos adicionales">
+      <input id="totalProp" readonly placeholder="Total autos">
+    </div>
+  `;
+}
+
+function toggleAutosProp(){
+  document.getElementById("autosInputsProp").style.display =
+    document.getElementById("checkProp").checked ? "block" : "none";
+}
+
+function calcProp(){
+
+  let total =
+    (+document.getElementById("acProp").value || 0) +
+    (+document.getElementById("afProp").value || 0) +
+    (+document.getElementById("aaProp").value || 0);
+
+  document.getElementById("totalProp").value = total;
+
+  generarAutosProp(total);
+}
+
+function generarAutosProp(total){
+
+  const cont = document.getElementById("autosContainer");
+
+  const hab = document.getElementById("habProp")?.value || "";
+  const ac = document.getElementById("acProp")?.value || "";
+  const af = document.getElementById("afProp")?.value || "";
+  const aa = document.getElementById("aaProp")?.value || "";
+
+  cont.innerHTML = `
+    <input id="habProp" type="number" value="${hab}" placeholder="¿Cuántos habitantes viven contigo?">
+
+    <label>¿Tiene autos?</label>
+    <input type="checkbox" id="checkProp" checked onchange="toggleAutosProp()">
+
+    <div id="autosInputsProp">
+      <input id="acProp" value="${ac}" oninput="calcProp()" placeholder="Autos cochera">
+      <input id="afProp" value="${af}" oninput="calcProp()" placeholder="Autos frente">
+      <input id="aaProp" value="${aa}" oninput="calcProp()" placeholder="Autos adicionales">
+      <input id="totalProp" value="${total}" readonly placeholder="Total autos">
+    </div>
+  `;
+
+  data.inquilinos[0].autos = [];
+
+  for(let j=0;j<total;j++){
+
+    cont.innerHTML += `
+    <hr>
+    <h4>Auto ${j+1} (Propietario)</h4>
+
+    <input id="condP_${j}" placeholder="Conductor">
+
+    <select id="tipoP_${j}">
+      <option>Auto</option>
+      <option>Moto</option>
+    </select>
+
+    <input id="marcaP_${j}" placeholder="Marca">
+    <input id="modeloP_${j}" placeholder="Modelo">
+    <input id="anioP_${j}" placeholder="Año">
+    <input id="colorP_${j}" placeholder="Color">
+    <input id="placasP_${j}" placeholder="Placas">
+
+    <select id="usoP_${j}">
+      <option>Residente</option>
+      <option>Chofer</option>
+      <option>Visita frecuente</option>
+    </select>
+    `;
+
+    data.inquilinos[0].autos.push({});
+  }
+
+}
+
+/* ================= ENVIAR ================= */
+
+function enviar(){
+
+  const btn = document.getElementById("btnEnviar");
+  const loader = document.getElementById("loaderEnviar");
+
+  btn.disabled = true;
+  loader.style.display = "block";
+
+  data.usuario = usuarioActivo;
+  data.calle = calle.value;
+  data.numero = numero.value;
+  data.nombre = nombre.value;
+
+  const tipo = document.getElementById("tipoRegistro").value;
+
+  // 🔥 LIMPIAR antes de llenar
+  data.inquilinos.forEach(inq => inq.autos = []);
+
+  // ================= INQUILINOS =================
+  if(tipo === "inquilino"){
+
+    const num = document.getElementById("numInquilinos").value;
+
+    for(let i=0;i<num;i++){
+
+      let total = document.getElementById("check"+i).checked
+        ? (+document.getElementById("total"+i).value || 0)
+        : 0;
+
+      data.inquilinos[i].habitantes = +document.getElementById("hab"+i).value || 0;
+      data.inquilinos[i].autosCochera = +document.getElementById("ac"+i).value || 0;
+      data.inquilinos[i].autosFrente = +document.getElementById("af"+i).value || 0;
+      data.inquilinos[i].autosAdicional = +document.getElementById("aa"+i).value || 0;
+
+      for(let j=0;j<total;j++){
+
+        data.inquilinos[i].autos.push({
+          conductor: document.getElementById(`cond${i}_${j}`)?.value || "",
+          tipo: document.getElementById(`tipo${i}_${j}`)?.value || "",
+          marca: document.getElementById(`marca${i}_${j}`)?.value || "",
+          modelo: document.getElementById(`modelo${i}_${j}`)?.value || "",
+          anio: document.getElementById(`anio${i}_${j}`)?.value || "",
+          color: document.getElementById(`color${i}_${j}`)?.value || "",
+          placas: document.getElementById(`placas${i}_${j}`)?.value || "",
+          uso: document.getElementById(`uso${i}_${j}`)?.value || ""
+        });
+
+      }
+    }
+  }
+
+  // ================= PROPIETARIO =================
+  if(tipo === "propietario"){
+
+    let total = +document.getElementById("totalProp").value || 0;
+
+    data.inquilinos[0].autos = [];
+    data.inquilinos[0].habitantes = +document.getElementById("habProp").value || 0;
+
+    for(let j=0;j<total;j++){
+
+      data.inquilinos[0].autos.push({
+        conductor: document.getElementById(`condP_${j}`)?.value || "",
+        tipo: document.getElementById(`tipoP_${j}`)?.value || "",
+        marca: document.getElementById(`marcaP_${j}`)?.value || "",
+        modelo: document.getElementById(`modeloP_${j}`)?.value || "",
+        anio: document.getElementById(`anioP_${j}`)?.value || "",
+        color: document.getElementById(`colorP_${j}`)?.value || "",
+        placas: document.getElementById(`placasP_${j}`)?.value || "",
+        uso: document.getElementById(`usoP_${j}`)?.value || ""
+      });
+
+    }
+
+    data.inquilinos[0].autosCochera = +document.getElementById("acProp").value || 0;
+    data.inquilinos[0].autosFrente = +document.getElementById("afProp").value || 0;
+    data.inquilinos[0].autosAdicional = +document.getElementById("aaProp").value || 0;
+  }
+
+  fetch("https://script.google.com/macros/s/AKfycbyRYOwS4yDtqhXHDMwlME4i8WV6vs4ZX0BCYFANY_SR73yqRDUTLE-t_HL1tjnWH5Y/exec", {
+    method:"POST",
+    mode:"no-cors",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ ...data, action:"guardar" })
+  });
+
+  setTimeout(()=>{
+    btn.disabled = false;
+    loader.style.display = "none";
+    alert("Datos enviados correctamente");
+    reiniciarFormulario();
+  },1500);
+
+}
+
+function reiniciarFormulario(){
+  data = { inquilinos: [] };
+  document.querySelectorAll("input").forEach(i => i.value = "");
+  document.getElementById("inquilinosContainer").innerHTML = "";
+  document.getElementById("autosContainer").innerHTML = "";
+  nextStep(1);
+}
+
+</script>
+
+</body>
+</html>
